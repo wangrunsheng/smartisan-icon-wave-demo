@@ -102,6 +102,8 @@ class LibraryDemoActivity : Activity() {
             })
         }, LinearLayout.LayoutParams(-1, style.dp(48)))
         root.addView(style.button(if (playing) R.string.pause_waves else R.string.resume_waves, primary = true).apply {
+            minimumHeight = style.dp(48)
+            layoutParams = LinearLayout.LayoutParams(-1, style.dp(48)).apply { topMargin = style.dp(8) }
             setOnClickListener {
                 playing = !playing
                 setText(if (playing) R.string.pause_waves else R.string.resume_waves)
@@ -109,6 +111,8 @@ class LibraryDemoActivity : Activity() {
             }
         })
         root.addView(style.button(R.string.choose_photo, primary = false).apply {
+            minimumHeight = style.dp(48)
+            layoutParams = LinearLayout.LayoutParams(-1, style.dp(48)).apply { topMargin = style.dp(8) }
             setOnClickListener {
                 startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                     type = "image/*"

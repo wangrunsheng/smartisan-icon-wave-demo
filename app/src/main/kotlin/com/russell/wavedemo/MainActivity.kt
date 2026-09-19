@@ -66,6 +66,7 @@ class MainActivity : Activity() {
         root.addView(createPlaybackButtons())
         root.addView(createSettings())
         root.addView(style.button(R.string.open_library, primary = false).apply {
+            minimumHeight = style.dp(48)
             setOnClickListener {
                 startActivity(android.content.Intent(this@MainActivity, LibraryDemoActivity::class.java))
             }
