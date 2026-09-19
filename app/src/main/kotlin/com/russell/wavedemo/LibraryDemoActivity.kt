@@ -97,7 +97,7 @@ class LibraryDemoActivity : ComponentActivity() {
         row.addView(fill, LinearLayout.LayoutParams(0, style.dp(170), 1f).apply { marginEnd = style.dp(12) })
         row.addView(card, LinearLayout.LayoutParams(0, style.dp(170), 1f))
         root.addView(row)
-        label("Compose：共享水波组件")
+        label("Compose：容器 / Modifier")
         root.addView(ComposeView(this).apply {
             setContent { ComposeCard(composeLevel.floatValue, composePlaying.value, composePhoto.value) }
         }, LinearLayout.LayoutParams(-1, style.dp(170)))

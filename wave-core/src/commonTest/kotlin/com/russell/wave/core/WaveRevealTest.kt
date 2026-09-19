@@ -7,6 +7,22 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class WaveRevealTest {
+    @Test fun presetsCopyWithoutChangingDefaultsAndHaveValueEquality() {
+        val original = WaveRevealDefaults.DoubleWave
+        val waves = mutableListOf(WaveRevealDefaults.RearWave.copy(opacity = .2f), WaveRevealDefaults.FrontWave)
+        val custom = original.copy(waves = waves, contentOpacity = .8f)
+        waves.clear()
+        assertEquals(.2f, custom.waves.first().opacity)
+        assertEquals(.3f, original.waves.first().opacity)
+        assertEquals(1f, original.contentOpacity)
+        assertEquals(original, original.copy())
+        assertEquals(original.hashCode(), original.copy().hashCode())
+        assertEquals(WaveRevealSpec(), original)
+        assertEquals(original.copy(baseOpacity = 0f).hashCode(), original.copy(baseOpacity = -0f).hashCode())
+        val failure = assertFailsWith<IllegalArgumentException> { original.copy(contentOpacity = 2f) }
+        assertTrue(failure.message!!.contains("contentOpacity"))
+    }
+
     @Test fun endpointsCoverArbitraryAspectRatiosAndOffsets() {
         val spec = WaveRevealSpec(listOf(
             WaveLayerSpec(amplitudeFraction = .4f, levelOffsetFraction = -.6f, opacity = .3f),

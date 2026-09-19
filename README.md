@@ -35,21 +35,32 @@ app            纯色、组合卡片、照片、Compose 卡片与曲线对比
 
 提供源码模块，尚未发布 Maven Central。传统 View 使用 `WaveRevealLayout`；Android Compose 与 Compose Multiplatform 使用同一个 `WaveReveal`，内部没有 AndroidView 包装。平台验证状态见 [接入文档](docs/LIBRARY.md#平台验证)。
 
+最小用法：只传进度，内部自动管理波动时钟。
+
 ```kotlin
-val time = rememberWaveTime(running = playing && progress > 0f && progress < 1f)
-WaveReveal(
-    progress = progress,
-    timeSeconds = { time.value },
-    modifier = Modifier.size(180.dp),
-    shape = RoundedCornerShape(18.dp),
-    backdrop = { Box(Modifier.fillMaxSize().background(Color.White)) },
-    overlay = { Text("19", Modifier.padding(14.dp)) },
-) {
-    Box(Modifier.fillMaxSize().background(Color(0xFF00B9F2)))
+WaveReveal(progress = progress) {
+    ExistingCard()
 }
 ```
 
-示例中的 Text 可使用宿主现有的 Material 组件；库本身不依赖 Material。背景、被揭示的内容、覆盖层是三个独立槽位，内容只组合一次。换成照片或组合控件，只需替换内容槽。
+已有组件支持 Modifier 时，无需额外包装容器：
+
+```kotlin
+ExistingCard(modifier = Modifier.waveReveal(progress = progress))
+```
+
+两个入口共用绘制实现。默认在进度端点暂停时钟；用 `running` 暂停、`speed` 调速。背景、被揭示的内容、固定覆盖层需要分别控制时使用容器的 `backdrop` / `content` / `overlay` 槽。高级用法仍可传 `timeSeconds` 共享外部时钟。
+
+```kotlin
+val spec = remember {
+    WaveRevealDefaults.DoubleWave.copy(contentOpacity = .8f)
+}
+WaveReveal(progress = progress, spec = spec, running = playing) {
+    ExistingCard()
+}
+```
+
+`ExistingCard` 代表接入方已有的组件；这些片段位于 `@Composable` 函数内。库不依赖 Material，不接管图片加载、点击或无障碍。完整 imports、参数表和 Modifier 顺序见 [接入文档](docs/LIBRARY.md)。
 
 Android View 接法：
 
@@ -62,7 +73,7 @@ val reveal = WaveRevealLayout(context).apply {
 }
 ```
 
-默认就是白底、浅蓝后波、蓝色前波。换照片或控件组合只需换 setContent；数字“19”可用 setOverlay 保持在波形上方。基础透明度、每条波的不透明度和整组内容不透明度都可配置。
+以上示例传入白色背景和蓝色内容，配合默认蒙版得到浅蓝后波与蓝色前波；库本身不指定内容颜色。换照片或控件组合只需换 setContent；数字“19”可用 setOverlay 保持在波形上方。基础透明度、每条波的不透明度和整组内容不透明度都可配置。
 
 完整的公式、参数单位、依赖接入、生命周期和支持边界见 **[库接入文档](docs/LIBRARY.md)**。打开应用即可运行示例。
 

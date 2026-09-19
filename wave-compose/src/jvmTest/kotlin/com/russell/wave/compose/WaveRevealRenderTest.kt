@@ -3,6 +3,8 @@ package com.russell.wave.compose
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
@@ -21,6 +23,79 @@ import kotlin.test.assertTrue
 
 /** Exercises the actual shared renderer, including offscreen alpha composition. */
 class WaveRevealRenderTest {
+    private fun pixels(scene: ImageComposeScene, nanos: Long): ByteArray {
+        val image = scene.render(nanos)
+        return try {
+            image.encodeToData()!!.use { it.bytes }
+        } finally {
+            image.close()
+        }
+    }
+
+    @Test
+    fun modifierAndContainerProduceIdenticalPixels() {
+        val spec = WaveRevealSpec().copy(contentOpacity = .7f)
+        for (progress in listOf(0f, .45f, 1f)) {
+            val container = ImageComposeScene(100, 100) {
+                WaveReveal(progress, { .3 }, Modifier.size(100.dp), spec) {
+                    Canvas(Modifier.size(100.dp)) { drawRect(Color.Blue.copy(alpha = .5f)) }
+                }
+            }
+            val modifier = ImageComposeScene(100, 100) {
+                Canvas(Modifier.size(100.dp).waveReveal(progress, { .3 }, spec)) {
+                    drawRect(Color.Blue.copy(alpha = .5f))
+                }
+            }
+            try {
+                assertTrue(pixels(container, 0).contentEquals(pixels(modifier, 0)))
+            } finally {
+                container.close()
+                modifier.close()
+            }
+        }
+    }
+
+    @Test
+    fun automaticClockAnimatesPausesAndStopsAtEndpoints() {
+        for (useModifier in listOf(false, true)) {
+            val running = mutableStateOf(true)
+            val progress = mutableFloatStateOf(.5f)
+            val scene = ImageComposeScene(100, 100) {
+                if (useModifier) {
+                    Canvas(Modifier.size(100.dp).waveReveal(progress.floatValue, running = running.value)) {
+                        drawRect(Color.Blue)
+                    }
+                } else {
+                    WaveReveal(progress.floatValue, Modifier.size(100.dp), running = running.value) {
+                        Canvas(Modifier.size(100.dp)) { drawRect(Color.Blue) }
+                    }
+                }
+            }
+            try {
+                pixels(scene, 0)
+                val first = pixels(scene, 100_000_000)
+                val moving = pixels(scene, 300_000_000)
+                assertTrue(!first.contentEquals(moving), "Default clock must animate")
+                running.value = false
+                pixels(scene, 400_000_000)
+                val paused = pixels(scene, 500_000_000)
+                assertTrue(paused.contentEquals(pixels(scene, 900_000_000)))
+                assertTrue(!scene.hasInvalidations(), "Paused clock must stop requesting frames")
+                running.value = true
+                progress.floatValue = 1f
+                pixels(scene, 1_000_000_000)
+                pixels(scene, 1_100_000_000)
+                assertTrue(!scene.hasInvalidations(), "Endpoint must stop requesting frames")
+                progress.floatValue = .5f
+                pixels(scene, 1_200_000_000)
+                val resumed = pixels(scene, 1_300_000_000)
+                assertTrue(!resumed.contentEquals(pixels(scene, 1_500_000_000)))
+            } finally {
+                scene.close()
+            }
+        }
+    }
+
     @Test
     fun renderedCoverageMatchesFormulaAndPreservesContentAlpha() {
         val spec = WaveRevealSpec(

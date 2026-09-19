@@ -26,12 +26,12 @@ data class WaveLayerSpec(
     val direction: WaveDirection = WaveDirection.Left,
 ) {
     init {
-        require(amplitudeFraction.isFinite() && amplitudeFraction in 0f..1f)
-        require(wavelengthFraction.isFinite() && wavelengthFraction in 0.1f..10f)
-        require(periodSeconds.isFinite() && periodSeconds > 0.0)
-        require(phaseRadians.isFinite())
-        require(opacity.isFinite() && opacity in 0f..1f)
-        require(levelOffsetFraction.isFinite() && levelOffsetFraction in -1f..1f)
+        require(amplitudeFraction.isFinite() && amplitudeFraction in 0f..1f) { "amplitudeFraction must be finite and in 0..1 (fraction of the shorter side)" }
+        require(wavelengthFraction.isFinite() && wavelengthFraction in 0.1f..10f) { "wavelengthFraction must be finite and in 0.1..10 (fraction of width)" }
+        require(periodSeconds.isFinite() && periodSeconds > 0.0) { "periodSeconds must be finite and greater than 0" }
+        require(phaseRadians.isFinite()) { "phaseRadians must be finite" }
+        require(opacity.isFinite() && opacity in 0f..1f) { "opacity must be finite and in 0..1" }
+        require(levelOffsetFraction.isFinite() && levelOffsetFraction in -1f..1f) { "levelOffsetFraction must be finite and in -1..1 (fraction of the shorter side)" }
     }
 
     /** Always in [-wavelength, 0], including reverse motion and negative time. */
@@ -60,8 +60,8 @@ data class WaveLayerSpec(
  */
 class WaveRevealSpec(
     waves: List<WaveLayerSpec> = listOf(
-        WaveLayerSpec(0.032f, periodSeconds = 0.70, phaseRadians = 0.77, opacity = 0.30f),
-        WaveLayerSpec(0.021f, periodSeconds = 0.85, phaseRadians = -0.29),
+        WaveRevealDefaults.RearWave,
+        WaveRevealDefaults.FrontWave,
     ),
     val baseOpacity: Float = 0f,
     val contentOpacity: Float = 1f,
@@ -70,10 +70,30 @@ class WaveRevealSpec(
     val waves: List<WaveLayerSpec> = waves.toList()
 
     init {
-        require(this.waves.isNotEmpty() && this.waves.size <= 8)
-        require(baseOpacity.isFinite() && baseOpacity in 0f..1f)
-        require(contentOpacity.isFinite() && contentOpacity in 0f..1f)
+        require(this.waves.isNotEmpty() && this.waves.size <= 8) { "waves must contain 1..8 masks" }
+        require(baseOpacity.isFinite() && baseOpacity in 0f..1f) { "baseOpacity must be finite and in 0..1" }
+        require(contentOpacity.isFinite() && contentOpacity in 0f..1f) { "contentOpacity must be finite and in 0..1" }
     }
+
+    /** Copies this value; the supplied wave list is defensively copied again. */
+    fun copy(
+        waves: List<WaveLayerSpec> = this.waves,
+        baseOpacity: Float = this.baseOpacity,
+        contentOpacity: Float = this.contentOpacity,
+    ): WaveRevealSpec = WaveRevealSpec(waves, baseOpacity, contentOpacity)
+
+    override fun equals(other: Any?): Boolean = other is WaveRevealSpec &&
+        waves == other.waves && baseOpacity == other.baseOpacity && contentOpacity == other.contentOpacity
+
+    override fun hashCode(): Int {
+        // Signed zero compares equal for Float properties; normalize it for the hash contract.
+        val baseHash = if (baseOpacity == 0f) 0 else baseOpacity.hashCode()
+        val contentHash = if (contentOpacity == 0f) 0 else contentOpacity.hashCode()
+        return 31 * (31 * waves.hashCode() + baseHash) + contentHash
+    }
+
+    override fun toString(): String =
+        "WaveRevealSpec(waves=$waves, baseOpacity=$baseOpacity, contentOpacity=$contentOpacity)"
 
     fun margin(width: Float, height: Float): Float =
         min(width, height) * waves.maxOf { it.amplitudeFraction + abs(it.levelOffsetFraction) } + 1f
@@ -95,6 +115,22 @@ class WaveRevealSpec(
         }
         return (1f - remaining) * contentOpacity
     }
+}
+
+/** Named defaults; customize with copy rather than repeating the fitted constants. */
+object WaveRevealDefaults {
+    val RearWave = WaveLayerSpec(
+        amplitudeFraction = .032f,
+        periodSeconds = .70,
+        phaseRadians = .77,
+        opacity = .30f,
+    )
+    val FrontWave = WaveLayerSpec(
+        amplitudeFraction = .021f,
+        periodSeconds = .85,
+        phaseRadians = -.29,
+    )
+    val DoubleWave = WaveRevealSpec(waves = listOf(RearWave, FrontWave))
 }
 
 /** Platform-neutral sampled geometry. Generate on size/spec changes, never every frame. */

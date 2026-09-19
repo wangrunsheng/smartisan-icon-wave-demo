@@ -20,39 +20,100 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import com.russell.wave.core.WaveRevealDefaults
 import com.russell.wave.core.WaveRevealSpec
 import com.russell.wave.core.WaveSamples
 
 /**
- * One live content tree, revealed through a union of sine masks.
- * Backdrop and overlay are not masked. [shape] clips all three slots.
- * Give this container a size, or let content determine its size.
- * Masking is visual only: callers own input, semantics and platform-native surfaces.
- * [timeSeconds] is read during drawing, so animation does not recompose content.
+ * Reveals one live content tree using an automatically managed wave clock.
+ * [progress] controls water level, not elapsed time, and is clamped to 0..1.
+ * The clock pauses at either endpoint, when [running] is false, or [speed] is zero.
+ * Set running=false when the host is inactive or a retained item is offscreen.
+ * [shape] clips all slots; backdrop and overlay are outside the wave mask.
+ */
+@Composable
+fun WaveReveal(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    spec: WaveRevealSpec = WaveRevealDefaults.DoubleWave,
+    running: Boolean = true,
+    speed: Double = 1.0,
+    shape: Shape = RectangleShape,
+    backdrop: @Composable BoxScope.() -> Unit = {},
+    overlay: @Composable BoxScope.() -> Unit = {},
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val time = rememberAutomaticWaveTime(progress, running, speed)
+    WaveReveal(progress, { time.value }, modifier, spec, shape, backdrop, overlay, content)
+}
+
+/**
+ * Advanced overload for a shared or externally driven clock. No internal clock is started.
+ * [timeSeconds] is read only during drawing; elapsed time does not recompose content.
+ * Give the container a size, or let content determine its natural size.
+ * Visual masking does not change input or accessibility semantics.
  */
 @Composable
 fun WaveReveal(
     progress: Float,
     timeSeconds: () -> Double,
     modifier: Modifier = Modifier,
-    spec: WaveRevealSpec = remember { WaveRevealSpec() },
+    spec: WaveRevealSpec = WaveRevealDefaults.DoubleWave,
     shape: Shape = RectangleShape,
     backdrop: @Composable BoxScope.() -> Unit = {},
     overlay: @Composable BoxScope.() -> Unit = {},
     content: @Composable BoxScope.() -> Unit,
 ) {
-    require(progress.isFinite())
-    val currentProgress = rememberUpdatedState(progress.coerceIn(0f, 1f))
-    val currentTime = rememberUpdatedState(timeSeconds)
     Box(modifier.clip(shape), propagateMinConstraints = true) {
         Box(Modifier.matchParentSize(), content = backdrop)
         Box(
-            Modifier.waveMask(spec, { currentProgress.value }, { currentTime.value() }),
+            Modifier.waveReveal(progress, timeSeconds, spec),
             propagateMinConstraints = true,
             content = content,
         )
         Box(Modifier.matchParentSize(), content = overlay)
     }
+}
+
+/**
+ * Applies the reveal directly to existing content without adding a layout container.
+ * Modifier order matters: background().waveReveal() keeps the background outside
+ * the mask; waveReveal().background() masks it. Use clip(shape) for outer clipping.
+ * Input and semantics are unchanged. [running] controls this modifier's own clock.
+ * Call from a composable; retained offscreen items should pass running=false.
+ */
+@Composable
+fun Modifier.waveReveal(
+    progress: Float,
+    spec: WaveRevealSpec = WaveRevealDefaults.DoubleWave,
+    running: Boolean = true,
+    speed: Double = 1.0,
+): Modifier {
+    val time = rememberAutomaticWaveTime(progress, running, speed)
+    return waveReveal(progress, { time.value }, spec)
+}
+
+/** External-clock variant; the caller owns pause, speed and lifecycle policy. */
+@Composable
+fun Modifier.waveReveal(
+    progress: Float,
+    timeSeconds: () -> Double,
+    spec: WaveRevealSpec = WaveRevealDefaults.DoubleWave,
+): Modifier {
+    require(progress.isFinite()) { "progress must be finite; values outside 0..1 are clamped" }
+    val currentProgress = rememberUpdatedState(progress.coerceIn(0f, 1f))
+    val currentTime = rememberUpdatedState(timeSeconds)
+    // Remember the modifier so equal configuration values retain cached geometry
+    // when the caller recomposes for unrelated reasons or changes progress.
+    return this.then(remember(spec) {
+        Modifier.waveMask(spec, { currentProgress.value }, { currentTime.value() })
+    })
+}
+
+@Composable
+private fun rememberAutomaticWaveTime(progress: Float, running: Boolean, speed: Double): State<Double> {
+    require(progress.isFinite()) { "progress must be finite; values outside 0..1 are clamped" }
+    return rememberWaveTime(running && progress > 0f && progress < 1f, speed)
 }
 
 /**
@@ -62,7 +123,7 @@ fun WaveReveal(
  */
 @Composable
 fun rememberWaveTime(running: Boolean = true, speed: Double = 1.0): State<Double> {
-    require(speed.isFinite() && speed >= 0.0)
+    require(speed.isFinite() && speed >= 0.0) { "speed must be finite and non-negative" }
     val elapsed = remember { mutableDoubleStateOf(0.0) }
     LaunchedEffect(running, speed) {
         if (running && speed > 0.0) {
@@ -103,7 +164,7 @@ private fun Modifier.waveMask(
     onDrawWithContent {
         if (paths.isNotEmpty()) {
             val seconds = time()
-            require(seconds.isFinite())
+            require(seconds.isFinite()) { "timeSeconds must return a finite value" }
             val baseline = spec.baseline(progress(), size.width, size.height)
             drawIntoCanvas { canvas ->
                 canvas.saveLayer(bounds, group)

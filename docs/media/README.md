@@ -6,7 +6,7 @@ clock and the original fitted parameters. Left is Bézier, right is sine.
 The waterline is fixed to isolate shape and horizontal motion. GIF replay
 restarts the recording; it is not evidence of a discontinuity in either curve.
 
-`library-demo.png` is a screenshot crop of the live Android View and Compose card examples (version 3.1).
+`library-demo.png` is a screenshot crop of the live Android View and Compose card examples (version 3.2, automatic-clock container and Modifier).
 No user photo or Chrome artwork is included in these previews.
 
 To reproduce: build the app, scroll to the Bézier / Sine comparison, then record the screen:
