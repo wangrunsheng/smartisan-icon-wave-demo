@@ -1,5 +1,19 @@
 # Smartisan Icon Wave Demo · 双波实验
 
+## 实现版本与通用库
+
+本分支使用正弦公式，预生成波形路径，动画时仅平移；保留原图标 Demo 参数。
+
+- [贝塞尔版](https://github.com/wangrunsheng/smartisan-icon-wave-demo/tree/main)：原始拟合效果。
+- [正弦版](https://github.com/wangrunsheng/smartisan-icon-wave-demo/tree/sine-wave)：同参数正弦波与缓存路径。
+- [Wave Reveal 通用库](https://github.com/wangrunsheng/smartisan-icon-wave-demo/tree/wave-reveal-library)：纯 Kotlin 参数核心与 Android View/ViewGroup 容器，支持纯色、照片和控件组合。尚未发布 Maven Central，Compose/CMP UI 适配尚未实现。[接入文档](https://github.com/wangrunsheng/smartisan-icon-wave-demo/blob/wave-reveal-library/docs/LIBRARY.md)。
+
+![左贝塞尔，右正弦；同参数同步对比](https://raw.githubusercontent.com/wangrunsheng/smartisan-icon-wave-demo/wave-reveal-library/docs/media/bezier-vs-sine.gif)
+
+对比来自锤子手机实际录屏，两侧共享时钟和波形参数，水位固定。两者最大高度差约为振幅的 0.275%，视觉非常接近。贝塞尔也可以缓存后平移；通用库选择正弦主要是因为公式和参数直接对应，不代表已证明它性能更高。GIF 是压缩预览，不用于测量亚像素误差。
+
+---
+
 一个用 **Kotlin + Android Canvas** 复刻 **Smartisan OS 桌面图标下载水波纹动画**的实验 Demo。两条等波长的正弦曲线以不同速度移动，分别裁切同一幅彩色图标，叠加出下载进度的水面效果。
 
 支持暂停、四分之一慢放、曲线轮廓和手动水位。无网络请求、无运行时权限、无 Python、无 WebView。
