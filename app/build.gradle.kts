@@ -10,8 +10,8 @@ android {
         applicationId = "com.russell.wavedemo"
         minSdk = 26
         targetSdk = 34
-        versionCode = 9
-        versionName = "2.5-sine"
+        versionCode = 10
+        versionName = "3.0-library"
     }
 
     compileOptions {
@@ -25,5 +25,6 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":wave-view"))
     testImplementation("junit:junit:4.13.2")
 }

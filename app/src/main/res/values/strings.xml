@@ -16,4 +16,8 @@
     <string name="automatic">自动水位</string>
     <string name="custom">自定水位</string>
     <string name="status">%1$s   ·   %2$s   ·   %3$s</string>
+    <string name="open_library">通用组件与曲线对比</string>
+    <string name="pause_waves">暂停波动</string>
+    <string name="resume_waves">继续波动</string>
+    <string name="choose_photo">为 19 日选择照片</string>
 </resources>

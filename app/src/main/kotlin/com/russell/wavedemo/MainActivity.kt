@@ -65,6 +65,11 @@ class MainActivity : Activity() {
         root.addView(status)
         root.addView(createPlaybackButtons())
         root.addView(createSettings())
+        root.addView(style.button(R.string.open_library, primary = false).apply {
+            setOnClickListener {
+                startActivity(android.content.Intent(this@MainActivity, LibraryDemoActivity::class.java))
+            }
+        })
         root.addView(style.text(R.string.footer, 11f).apply {
             setTextColor(style.muted)
             gravity = Gravity.CENTER

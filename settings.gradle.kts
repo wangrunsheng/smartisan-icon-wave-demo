@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "WaveDemo"
 include(":app")
+
+include(":wave-core", ":wave-view")
