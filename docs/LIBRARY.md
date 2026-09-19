@@ -1,10 +1,41 @@
 # Wave Reveal：参数与接入
 
-第一版为源码模块库，尚未发布 Maven Central，不要使用虚构的 Maven 坐标。
+源码模块库，尚未发布 Maven Central，不使用虚构的 Maven 坐标。
 
-- `wave-core`：Kotlin Multiplatform `commonMain`，无 Android / UI 依赖。当前只配置并验证 JVM target，供 Android 适配使用；尚未产出 iOS、Web 等平台制品。
-- `wave-view`：Android `WaveRevealLayout`，最低 API 26，使用正弦波。支持普通 View、ImageView、ViewGroup。
-- Compose / Compose Multiplatform：**尚未实现 Modifier 或 Composable 适配器**。核心公式可复用，不等于当前已有跨平台 UI 控件。
+- `wave-core`：公共公式和参数，无 UI 依赖；JVM、iOS arm64 / 模拟器 arm64、Wasm targets。
+- `wave-view`：传统 Android View / ViewGroup 适配，最低 API 26。
+- `wave-compose`：同一个公共 Composable，供 Android Compose 和 CMP 使用；Android、JVM、iOS、Wasm targets。
+
+## Compose / CMP 接入
+
+将 `wave-core`、`wave-compose` 纳入工程，调用方依赖 `project(":wave-compose")`。需要根工程同版本的 Kotlin Multiplatform、Compose Multiplatform、Compose compiler 与 Android KMP library 插件，具体配置见仓库 Gradle 文件。Android 应用也应用 Compose compiler 插件并启用 Compose。
+
+```kotlin
+import com.russell.wave.compose.WaveReveal
+import com.russell.wave.compose.rememberWaveTime
+
+val time = rememberWaveTime(running = playing && progress > 0f && progress < 1f)
+WaveReveal(
+    progress = progress,
+    timeSeconds = { time.value },
+    modifier = Modifier.size(180.dp),
+    spec = remember { WaveRevealSpec() },
+    shape = RoundedCornerShape(18.dp),
+    backdrop = { Box(Modifier.fillMaxSize().background(Color.White)) },
+    overlay = { Text("19", Modifier.padding(14.dp)) },
+) {
+    // Image、Box、Column 或自定义组合组件都放在这里。
+    Box(Modifier.fillMaxSize().background(Color(0xFF00B9F2)))
+}
+```
+
+上述布局/绘图符号使用常规 Compose imports；Text 使用调用方的 Material 库或替换为 BasicText。库不强制 Material 版本。
+
+`content` 决定自然尺寸，或者由 modifier 明确指定尺寸；backdrop / overlay 匹配容器大小。`shape` 裁切所有槽位。波形透明度、progress 和 timeSeconds 与 View API 含义一致。不同颜色/内容的独立波层可叠放多个 WaveReveal，并共享一个 time；无需重复实现公式。
+
+`rememberWaveTime` 返回独立时钟，暂停恢复不会累计暂停期间的时间；离开 composition 后取消帧循环。时钟只在 draw 阶段读取，不让整棵内容树每帧重组。调用方需在后台、屏外或不需要动画时传入 running=false；不要把“还在 composition”当成“用户能看到”。支持 speed，或完全由外部传入时间以同步多个组件。示例 Activity 在 onPause / onResume 切换时钟。
+
+蒙版保留内容自身透明像素，整组 contentOpacity 在合成后应用。隐藏部分的点击与无障碍不随视觉蒙版变化，由调用方管理。平台原生嵌入视图、独立视频/地图表面不在保证范围内。
 
 ## 接入已有 Android 工程
 
@@ -61,7 +92,7 @@ val reveal = WaveRevealLayout(context).apply {
 
 这里是**一份蓝色内容、两张波形蒙版**。默认不创建两份内容，不重复注册交互或无障碍节点。
 
-## 换成照片或日期卡片
+## 换成照片或组合卡片
 
 仅替换内容：
 
@@ -85,7 +116,7 @@ reveal.setOverlay(TextView(context).apply {
 
 外层圆角裁切所有槽；对象只有一个父容器，不会自动从别的布局抢走。绘制蒙版只改变视觉，不改变点击命中范围；如需“未出现时不可点击”，请由业务设置 `isEnabled`、可访问性等。
 
-若要三份**不同内容、不同颜色**各自使用不同波形，可在普通 FrameLayout 中堆叠多个 WaveRevealLayout，各自只配置一条波、不同的 content，背景仅放在最底层。这与“一份内容、多个蒙版”不同，成本也更高，第一版不额外提供 WaveStack DSL。
+若要三份**不同内容、不同颜色**各自使用不同波形，可在普通 FrameLayout 中堆叠多个 WaveRevealLayout，各自只配置一条波、不同的 content，背景仅放在最底层。这与“一份内容、多个蒙版”不同，成本也更高，当前不额外提供 WaveStack DSL。
 
 ## 公式与单位
 
@@ -137,7 +168,7 @@ reveal.speed = .25               // 四分之一速度
 
 支持纯色、透明图片、普通自定义 View、嵌套 ViewGroup；动态内容会随正常 invalidate 更新。需要两层离屏合成来正确处理整组 alpha 和透明像素。
 
-不支持 SurfaceView、独立视频/地图渲染表面、跨窗口内容。Compose/CMP 需原生绘制适配，后续适配应复用相同 core 语义，不复制多份 Composable 内容树。第一版不提供任意 Path 外形接口，仅提供矩形/圆角矩形。
+View 不支持 SurfaceView、独立视频/地图渲染表面、跨窗口内容，外形为矩形或圆角矩形。Compose 使用公共绘图 API 和 Shape，支持普通 Composable 内容树；没有重复组合内容，也不依赖 Android Canvas。
 
 示例照片由系统文档选择器读取，无网络上传。当前演示 Activity 旋转后恢复进度/播放状态，但不恢复用户临时选取的照片；实际产品应由自己的状态层保存照片 URI。
 
@@ -145,10 +176,33 @@ reveal.speed = .25               // 四分之一速度
 
 ```sh
 ./gradlew :wave-core:jvmTest :wave-view:assembleRelease :wave-view:lintDebug
-./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+./gradlew :app:assembleDebug :app:lintDebug
 ```
 
 Android AAR：`wave-view/build/outputs/aar/wave-view-release.aar`。
 核心 JVM JAR：`wave-core/build/libs/` 下的 JAR。
 
 手动分发 AAR 时还需提供 core JVM JAR 和 Kotlin 标准库；建议用源码模块依赖，由 Gradle 自动处理依赖。不应把 AAR 误称为没有任何依赖的单文件库。
+
+## 平台验证
+
+本次验证（2026-09-19）：
+
+| 目标 | 验证结果 |
+| --- | --- |
+| Android | APK 构建、Lint 通过；Smartisan DE106 / Android 8.1 真机检查 View 与 Compose、0% / 100%、圆角、固定覆盖层、暂停恢复和前后台切换 |
+| JVM / macOS arm64 | 5 项 core 测试、3 项 Compose 离屏像素/重组测试通过 |
+| iOS arm64、iOS 模拟器 arm64 | 公共组件编译通过；未运行 iOS 宿主应用 |
+| Web / Wasm | 公共组件编译通过；未在浏览器运行宿主应用 |
+
+Compose 像素测试覆盖蒙版 source-over、内容自身透明度、整组 alpha、背景/覆盖层、圆角裁切，以及时间改变确实重绘但不重新组合内容。真机暂停前后卡片区域像素一致。照片选择流程尚未用实际照片验证。
+
+配置/编译 target 不等于已经在设备上验证；未宣称不同后端像素完全一致，也没有未经测量的 FPS / 功耗结论。
+
+```sh
+./gradlew :wave-core:jvmTest :wave-compose:jvmTest
+./gradlew :wave-compose:compileKotlinWasmJs
+./gradlew :wave-compose:compileKotlinIosArm64 :wave-compose:compileKotlinIosSimulatorArm64
+```
+
+JVM 测试使用无窗口的 Skia surface；iOS 编译需要 macOS / Xcode。

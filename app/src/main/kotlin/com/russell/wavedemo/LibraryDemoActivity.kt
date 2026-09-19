@@ -1,36 +1,49 @@
 package com.russell.wavedemo
 
-import android.app.Activity
-import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.ComposeView
 import com.russell.wave.view.WaveRevealLayout
+import com.russell.wavedemo.ui.ComposeCard
 import com.russell.wavedemo.ui.CurveComparisonView
 import com.russell.wavedemo.ui.DemoStyle
 
 /** Live examples: one color, a ViewGroup, and a user-selected photo use the same library. */
-class LibraryDemoActivity : Activity() {
+class LibraryDemoActivity : ComponentActivity() {
     private lateinit var card: WaveRevealLayout
     private lateinit var fill: WaveRevealLayout
     private lateinit var comparison: CurveComparisonView
+    private val composePhoto = mutableStateOf<ImageBitmap?>(null)
+    private val composeLevel = mutableFloatStateOf(.55f)
+    private val composePlaying = mutableStateOf(false)
     private var playing = true
     private var level = .55f
+    private val choosePhoto = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) showPhoto(uri)
+    }
     private val style by lazy { DemoStyle(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         level = savedInstanceState?.getFloat("level", .55f) ?: .55f
+        composeLevel.floatValue = level
         playing = savedInstanceState?.getBoolean("playing", true) ?: true
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -46,10 +59,7 @@ class LibraryDemoActivity : Activity() {
             })
         }
         label("Wave Reveal · 通用组件", 24f)
-        label("同参数对比：左 Bézier / 右 Sine")
-        comparison = CurveComparisonView(this)
-        root.addView(comparison, LinearLayout.LayoutParams(-1, style.dp(145)))
-        label("同一个模板：纯色 / 日期 + 内容组合")
+        label("Android View：纯色 / 组合卡片")
         val row = LinearLayout(this)
         fill = WaveRevealLayout(this).apply {
             cornerRadiusPx = style.dp(18).toFloat()
@@ -87,6 +97,10 @@ class LibraryDemoActivity : Activity() {
         row.addView(fill, LinearLayout.LayoutParams(0, style.dp(170), 1f).apply { marginEnd = style.dp(12) })
         row.addView(card, LinearLayout.LayoutParams(0, style.dp(170), 1f))
         root.addView(row)
+        label("Compose：共享水波组件")
+        root.addView(ComposeView(this).apply {
+            setContent { ComposeCard(composeLevel.floatValue, composePlaying.value, composePhoto.value) }
+        }, LinearLayout.LayoutParams(-1, style.dp(170)))
         label("揭示进度（波动与进度独立）")
         root.addView(SeekBar(this).apply {
             max = 1000
@@ -96,6 +110,7 @@ class LibraryDemoActivity : Activity() {
                 override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
                 override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                     level = progress / 1000f
+                    composeLevel.floatValue = level
                     fill.progress = level
                     card.progress = level
                 }
@@ -114,26 +129,33 @@ class LibraryDemoActivity : Activity() {
             minimumHeight = style.dp(48)
             layoutParams = LinearLayout.LayoutParams(-1, style.dp(48)).apply { topMargin = style.dp(8) }
             setOnClickListener {
-                startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    type = "image/*"
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                }, 19)
+                choosePhoto.launch(arrayOf("image/*"))
             }
         })
-        label("可拖到 0% / 100% 检查边缘。日期始终显示，内容被波形揭示。", 12f)
+        label("可拖到 0% / 100% 检查边缘。数字始终显示，内容被波形揭示。", 12f)
         fill.progress = level
         card.progress = level
+        label("同参数对比：左 Bézier / 右 Sine")
+        comparison = CurveComparisonView(this)
+        root.addView(comparison, LinearLayout.LayoutParams(-1, style.dp(145)))
         setContentView(ScrollView(this).apply { addView(root) })
     }
 
     private fun applyPlayback(active: Boolean) {
+        composePlaying.value = active
         fill.isRunning = active
         card.isRunning = active
         comparison.isPlaying = active
     }
 
-    override fun onResume() { super.onResume(); applyPlayback(playing) }
-    override fun onPause() { applyPlayback(false); super.onPause() }
+    override fun onResume() {
+        super.onResume()
+        applyPlayback(playing)
+    }
+    override fun onPause() {
+        applyPlayback(false)
+        super.onPause()
+    }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
@@ -141,11 +163,7 @@ class LibraryDemoActivity : Activity() {
         outState.putFloat("level", level)
     }
 
-    @Deprecated("Platform callback retained for the dependency-free Android 8 demo.")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != 19 || resultCode != RESULT_OK) return
-        val uri = data?.data ?: return
+    private fun showPhoto(uri: Uri) {
         try {
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
@@ -154,11 +172,14 @@ class LibraryDemoActivity : Activity() {
             options.inJustDecodeBounds = false
             options.inSampleSize = sample
             val bitmap = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
-            if (bitmap != null) card.setContent(ImageView(this).apply {
-                scaleType = ImageView.ScaleType.CENTER_CROP
-                setImageBitmap(bitmap)
-                contentDescription = "19 日选择的照片"
-            })
+            if (bitmap != null) {
+                composePhoto.value = bitmap.asImageBitmap()
+                card.setContent(ImageView(this).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    setImageBitmap(bitmap)
+                    contentDescription = "卡片照片"
+                })
+            }
         } catch (_: java.io.IOException) {
             android.widget.Toast.makeText(this, "无法读取该照片", android.widget.Toast.LENGTH_SHORT).show()
         } catch (_: SecurityException) {

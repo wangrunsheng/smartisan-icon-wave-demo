@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -10,9 +11,11 @@ android {
         applicationId = "com.russell.wavedemo"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
-        versionName = "3.0-library"
+        versionCode = 11
+        versionName = "3.1-compose"
     }
+
+    buildFeatures { compose = true }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -26,5 +29,7 @@ kotlin {
 
 dependencies {
     implementation(project(":wave-view"))
+    implementation(project(":wave-compose"))
+    implementation("androidx.activity:activity-compose:1.12.4")
     testImplementation("junit:junit:4.13.2")
 }

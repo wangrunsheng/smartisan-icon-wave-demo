@@ -6,10 +6,10 @@ clock and the original fitted parameters. Left is Bézier, right is sine.
 The waterline is fixed to isolate shape and horizontal motion. GIF replay
 restarts the recording; it is not evidence of a discontinuity in either curve.
 
-`library-demo.png` is a screenshot crop of the live `WaveRevealLayout` examples.
+`library-demo.png` is a screenshot crop of the live Android View and Compose card examples (version 3.1).
 No user photo or Chrome artwork is included in these previews.
 
-To reproduce: build the app, open “通用组件与曲线对比”, then record the screen:
+To reproduce: build the app, scroll to the Bézier / Sine comparison, then record the screen:
 
 ```sh
 adb shell screenrecord --time-limit 7 --bit-rate 6000000 /sdcard/waves.mp4
@@ -19,5 +19,6 @@ ffmpeg -ss 1 -t 5 -i waves.mp4 \
   bezier-vs-sine.gif
 ```
 
-Crop coordinates apply to this phone's 1080×2242 screen and current display
-settings; use the visible comparison bounds on other devices.
+The GIF was captured with the earlier comparison-at-top layout. Its crop coordinates
+refer to that layout on the 1080×2242 phone; update the crop to the visible
+comparison bounds when recording the current card-first layout.

@@ -1,23 +1,6 @@
 <resources>
     <string name="app_name">双波实验</string>
-    <string name="eyebrow">MOTION STUDY  /  01</string>
-    <string name="subtitle">让色彩随波浮现</string>
-    <string name="pause">暂停动画</string>
-    <string name="resume">继续播放</string>
-    <string name="slow">¼ 慢速</string>
-    <string name="normal">1× 恢复原速</string>
-    <string name="outlines">曲线轮廓</string>
-    <string name="manual_level">手动水位</string>
-    <string name="water_level">水位</string>
-    <string name="footer">等宽双波  ·  不同振幅  ·  匀速流动</string>
-    <string name="wave_description">两层等波长、不同振幅与速度的波纹动画</string>
-    <string name="playing">流动中</string>
-    <string name="paused">已暂停</string>
-    <string name="automatic">自动水位</string>
-    <string name="custom">自定水位</string>
-    <string name="status">%1$s   ·   %2$s   ·   %3$s</string>
-    <string name="open_library">通用组件与曲线对比</string>
     <string name="pause_waves">暂停波动</string>
     <string name="resume_waves">继续波动</string>
-    <string name="choose_photo">为 19 日选择照片</string>
+    <string name="choose_photo">为卡片选择照片</string>
 </resources>

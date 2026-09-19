@@ -7,11 +7,9 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.widget.Button
-import android.widget.Switch
-import android.widget.TextView
 import kotlin.math.roundToInt
 
-/** Small shared palette and native controls; no external UI runtime is needed on Android 8. */
+/** Small shared palette and native controls; used by the View demonstration. */
 internal class DemoStyle(private val context: Context) {
     val ink = 0xFF1E2B2A.toInt()
     val accent = 0xFF236959.toInt()
@@ -19,12 +17,6 @@ internal class DemoStyle(private val context: Context) {
     val surface = 0xFFF7F9F6.toInt()
 
     fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).roundToInt()
-
-    fun text(resource: Int, size: Float) = TextView(context).apply {
-        setText(resource)
-        textSize = size
-        setTextColor(ink)
-    }
 
     fun shape(color: Int, radius: Int) = GradientDrawable().apply {
         setColor(color)
@@ -49,17 +41,4 @@ internal class DemoStyle(private val context: Context) {
         )
     }
 
-    fun toggle(resource: Int) = Switch(context).apply {
-        setText(resource)
-        textSize = 14f
-        setTextColor(ink)
-        showText = false
-        thumbTintList = stateColors(accent, 0xFFB8C3BC.toInt())
-        trackTintList = stateColors(0xFFBAD9CB.toInt(), 0xFFE4E9E3.toInt())
-    }
-
-    private fun stateColors(checked: Int, unchecked: Int) = ColorStateList(
-        arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-        intArrayOf(checked, unchecked),
-    )
 }
