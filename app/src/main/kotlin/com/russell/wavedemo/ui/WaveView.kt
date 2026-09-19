@@ -12,7 +12,7 @@ import com.russell.wavedemo.motion.PlaybackClock
 import com.russell.wavedemo.motion.WaterLevel
 import com.russell.wavedemo.motion.WaveSpec
 
-/** Composites two independently translating Bézier masks over cached icon artwork. */
+/** Composites two independently translating sine-wave masks over cached icon artwork. */
 class WaveView(context: Context) : View(context) {
     private val clock = PlaybackClock()
     private val colorArtwork = IconArtwork.create(context, muted = false)
@@ -22,7 +22,8 @@ class WaveView(context: Context) : View(context) {
         style = Paint.Style.STROKE
         strokeWidth = 0.7f
     }
-    private val wavePath = Path()
+    private val rearGeometry = WaveGeometry(WaveSpec.Rear)
+    private val frontGeometry = WaveGeometry(WaveSpec.Front)
     private val iconBounds = RectF(0f, 0f, 180f, 180f)
     private val iconClip = Path().apply { addCircle(92f, 88f, 68f, Path.Direction.CW) }
     private val rearDash = DashPathEffect(floatArrayOf(2f, 1f), 0f)
@@ -87,19 +88,23 @@ class WaveView(context: Context) : View(context) {
         canvas.drawBitmap(mutedArtwork, null, iconBounds, bitmapPaint)
 
         val waterline = if (isManual) WaterLevel.fromProgress(progress) else WaterLevel.at(seconds)
-        drawLayer(canvas, WaveSpec.Rear, waterline)
-        drawLayer(canvas, WaveSpec.Front, waterline)
+        drawLayer(canvas, rearGeometry, waterline)
+        drawLayer(canvas, frontGeometry, waterline)
         if (showOutlines) drawOutlines(canvas, waterline)
         canvas.restoreToCount(saveCount)
 
         if (isPlaying && hostActive && isAttachedToWindow) postInvalidateOnAnimation()
     }
 
-    private fun drawLayer(canvas: Canvas, wave: WaveSpec, waterline: Float) {
-        buildPath(wave, waterline, close = true)
+    private fun drawLayer(canvas: Canvas, geometry: WaveGeometry, waterline: Float) {
+        val dx = geometry.wave.translationAt(seconds)
         val saveCount = canvas.save()
-        canvas.clipPath(wavePath)
-        bitmapPaint.alpha = wave.opacity
+        canvas.translate(dx, waterline)
+        canvas.clipPath(geometry.fill)
+        // The clip stays in device space. Undo the translation so only the water
+        // moves, while the icon remains anchored to its original bounds.
+        canvas.translate(-dx, -waterline)
+        bitmapPaint.alpha = geometry.wave.opacity
         canvas.drawBitmap(colorArtwork, null, iconBounds, bitmapPaint)
         canvas.restoreToCount(saveCount)
         bitmapPaint.alpha = 255
@@ -110,38 +115,41 @@ class WaveView(context: Context) : View(context) {
         canvas.clipPath(iconClip)
         outlinePaint.color = 0xFFFFA844.toInt()
         outlinePaint.pathEffect = rearDash
-        buildPath(WaveSpec.Rear, waterline, close = false)
-        canvas.drawPath(wavePath, outlinePaint)
+        drawOutline(canvas, rearGeometry, waterline)
         outlinePaint.color = 0xFF26DFE7.toInt()
         outlinePaint.pathEffect = null
-        buildPath(WaveSpec.Front, waterline, close = false)
-        canvas.drawPath(wavePath, outlinePaint)
+        drawOutline(canvas, frontGeometry, waterline)
         canvas.restoreToCount(saveCount)
     }
 
-    private fun buildPath(wave: WaveSpec, waterline: Float, close: Boolean) {
-        val origin = wave.originAt(seconds)
-        val half = WaveSpec.WAVELENGTH / 2f
-        val handle = half * WaveSpec.HANDLE_RATIO
-        val crest = waterline + wave.levelOffset - wave.amplitude
-        val trough = waterline + wave.levelOffset + wave.amplitude
-        wavePath.reset()
-        wavePath.moveTo(origin, crest)
-        var x = origin
-        while (x < 360f) {
-            // Horizontal handles give each crest and trough a flat, continuous tangent.
-            wavePath.cubicTo(x + handle, crest, x + half - handle, trough, x + half, trough)
-            wavePath.cubicTo(
-                x + half + handle, trough,
-                x + WaveSpec.WAVELENGTH - handle, crest,
-                x + WaveSpec.WAVELENGTH, crest,
-            )
-            x += WaveSpec.WAVELENGTH
+    private fun drawOutline(canvas: Canvas, geometry: WaveGeometry, waterline: Float) {
+        val saveCount = canvas.save()
+        canvas.translate(geometry.wave.translationAt(seconds), waterline)
+        canvas.drawPath(geometry.outline, outlinePaint)
+        canvas.restoreToCount(saveCount)
+    }
+
+    /**
+     * Two periods cover the viewport throughout a one-period translation.
+     * Geometry is sampled once per View instance, including the fixed phase and
+     * level offset. Frames only translate these immutable paths; they never
+     * evaluate sine or rebuild vertices. A separate open path serves outlines.
+     */
+    private class WaveGeometry(val wave: WaveSpec) {
+        val outline = Path().apply {
+            moveTo(0f, wave.offsetAt(0f, 0.0))
+            // Half-unit sampling keeps the maximum interpolation error below
+            // 0.00022 reference units for the configured amplitudes.
+            for (sample in 1..720) {
+                val x = sample * 0.5f
+                lineTo(x, wave.offsetAt(x, 0.0))
+            }
         }
-        if (close) {
-            wavePath.lineTo(x, 180f)
-            wavePath.lineTo(origin, 180f)
-            wavePath.close()
+        val fill = Path(outline).apply {
+            // Keep the closing edge below the icon even at the lowest waterline.
+            lineTo(360f, 360f)
+            lineTo(0f, 360f)
+            close()
         }
     }
 }

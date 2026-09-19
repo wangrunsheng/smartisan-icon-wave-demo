@@ -10,8 +10,8 @@ android {
         applicationId = "com.russell.wavedemo"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "2.3"
+        versionCode = 9
+        versionName = "2.5-sine"
     }
 
     compileOptions {

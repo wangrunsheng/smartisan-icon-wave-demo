@@ -49,8 +49,40 @@ class MotionTest {
     @Test
     fun `each wave returns to its phase after its own period`() {
         for (wave in listOf(WaveSpec.Front, WaveSpec.Rear)) {
-            assertEquals(wave.originAt(8.2), wave.originAt(8.2 + wave.periodSeconds), 0.0001f)
+            for (x in listOf(0f, 45f, 92f, 180f)) {
+                assertEquals(wave.offsetAt(x, 8.2), wave.offsetAt(x, 8.2 + wave.periodSeconds), 0.0001f)
+                assertEquals(wave.offsetAt(x, 8.2), wave.offsetAt(x + WaveSpec.WAVELENGTH, 8.2), 0.0001f)
+                // A quarter-period of time equals a quarter-wavelength to the right:
+                // the visible curve therefore travels to the left.
+                assertEquals(
+                    wave.offsetAt(x, 8.2 + wave.periodSeconds / 4),
+                    wave.offsetAt(x + WaveSpec.WAVELENGTH / 4, 8.2),
+                    0.0001f,
+                )
+            }
         }
         assertTrue(WaveSpec.Rear.periodSeconds < WaveSpec.Front.periodSeconds)
+    }
+
+    @Test
+    fun `sine reaches the configured extrema and crosses its center`() {
+        val wave = WaveSpec(6f, 1.0, 0.0, 255, 2f)
+        assertEquals(2f, wave.offsetAt(0f, 0.0), 0.0001f)
+        assertEquals(8f, wave.offsetAt(45f, 0.0), 0.0001f)
+        assertEquals(2f, wave.offsetAt(90f, 0.0), 0.0001f)
+        assertEquals(-4f, wave.offsetAt(135f, 0.0), 0.0001f)
+    }
+    @Test
+    fun `cached translation matches analytic wave across wrap boundaries`() {
+        for (wave in listOf(WaveSpec.Front, WaveSpec.Rear)) {
+            for (cycles in listOf(-0.01, 0.0, 0.999999, 1.0, 1.000001, 100.25)) {
+                val time = cycles * wave.periodSeconds
+                val dx = wave.translationAt(time)
+                assertTrue(dx >= -WaveSpec.WAVELENGTH && dx <= 0f)
+                for (x in listOf(0f, 45f, 92f, 180f)) {
+                    assertEquals(wave.offsetAt(x, time), wave.offsetAt(x - dx, 0.0), 0.0001f)
+                }
+            }
+        }
     }
 }
